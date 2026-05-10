@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+  workflow_dispatch:  # 添加手动触发按钮，方便测试
 
 jobs:
   build-and-release:
@@ -13,14 +14,16 @@ jobs:
       contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4  # 升级到 v4
         with:
           fetch-depth: 0
 
       - name: Set up LaTeX
-        uses: xu-cheng/latex-action@v2
+        uses: xu-cheng/latex-action@v3  # 升级到 v3
         with:
           root_file: main.tex
+          # 如果编译需要多次，可以加这一行
+          # latexmk_use_xelatex: true  # 如果需要中文支持
 
       - name: Prepare PDF for release branch
         run: |
@@ -32,11 +35,11 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git checkout --orphan release
-          # Remove all files and folders except .git
-          find . -mindepth 1 -maxdepth 1 ! -name '.git' ! -name '.' -exec rm -rf {} +
+          # 删除所有文件（保留 .git）
+          git rm -rf .  # 用 git rm 替代 find，更干净
           cp /tmp/cv_release/main.pdf .
           git add main.pdf
-          git commit -m "Update CV PDF"
+          git commit -m "Update CV PDF - $(date '+%Y-%m-%d %H:%M:%S')"  # 添加时间戳
           git push -f origin release
 
       - name: Create GitHub Release
@@ -47,7 +50,10 @@ jobs:
         with:
           tag_name: v${{ github.run_number }}
           release_name: Release v${{ github.run_number }}
-          body: "Automated CV PDF build."
+          body: |
+            Automatically built from commit: ${{ github.sha }}
+            
+            📄 **Download**: main.pdf
           draft: false
           prerelease: false
 
@@ -59,4 +65,4 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./main.pdf
           asset_name: main.pdf
-          asset_content_type: application/pdf 
+          asset_content_type: application/pdf
